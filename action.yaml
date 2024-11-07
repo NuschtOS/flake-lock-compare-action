@@ -1,59 +1,50 @@
 name: "Post compare link when flake.lock changes"
 
-permissions:
-  issues: write
-  pull-requests: write
+runs:
+  using: composite
+  steps:
+  - uses: cachix/install-nix-action@v30
+    with:
+      nix_path: nixpkgs=channel:nixpkgs-unstable
 
-on:
-  pull_request_target:
-    paths: ['flake.lock']
+  - uses: actions/checkout@v4
+    with:
+      fetch-depth: 0
+      ref: refs/pull/${{ github.event.pull_request.number }}/merge
+      sparse-checkout: flake.lock
 
-jobs:
-  post-compare-link:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: cachix/install-nix-action@v30
-      with:
-        nix_path: nixpkgs=channel:nixpkgs-unstable
+  - name: Generate comment from changed flake.lock file
+    run: |
+      export PATH="$PATH:$(nix-build --expr 'with import <nixpkgs> { }; buildEnv { name = "PATH"; paths = [python3Packages.jsonpatch]; }')/bin"
 
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-        ref: refs/pull/${{ github.event.pull_request.number }}/merge
-        sparse-checkout: flake.lock
+      echo "flake.lock compare links:" > comment.md
 
-    - name: Generate comment from changed flake.lock file
-      run: |
-        export PATH="$PATH:$(nix-build --expr 'with import <nixpkgs> { }; buildEnv { name = "PATH"; paths = [python3Packages.jsonpatch]; }')/bin"
+      before_rev_flake_lock="$(git log HEAD^ -1 --format='%H' -- flake.lock)"
+      before_flake_lock="$(mktemp)"
+      git show "$before_rev_flake_lock:flake.lock" > "$before_flake_lock"
 
-        echo "flake.lock compare links:" > comment.md
+      # when debugging, remove extra escape before dollars in xargs
+      jsondiff "$before_flake_lock" flake.lock | jq -c '.[] | select(.path|endswith("/rev"))' | \
+        xargs -d'\n' bash -c 'in="$1"; \
+          locked=$(echo "$in" | jq -r .path | sed -e "s|/rev$||g" -e "s|/|.|g"); \
+          old_rev="$(jq -r "$locked.rev" '"$before_flake_lock"')"; \
+          new_rev="$(echo "$in" | jq -r .value)"; \
+          path="$(jq -r "$locked | \"https://\(.host // \"github.com\")/\(.owner)/\(.repo)/compare\"" flake.lock)"; \
+          echo "- $path/$old_rev...$new_rev" \
+        ' "" >> comment.md
 
-        before_rev_flake_lock="$(git log HEAD^ -1 --format='%H' -- flake.lock)"
-        before_flake_lock="$(mktemp)"
-        git show "$before_rev_flake_lock:flake.lock" > "$before_flake_lock"
+  - name: Find Comment
+    uses: peter-evans/find-comment@v3
+    id: fc
+    with:
+      issue-number: ${{ github.event.pull_request.number }}
+      comment-author: 'github-actions[bot]'
+      body-includes: flake.lock compare links
 
-        # when debugging, remove extra escape before dollars in xargs
-        jsondiff "$before_flake_lock" flake.lock | jq -c '.[] | select(.path|endswith("/rev"))' | \
-          xargs -d'\n' bash -c 'in="$1"; \
-            locked=$(echo "$in" | jq -r .path | sed -e "s|/rev$||g" -e "s|/|.|g"); \
-            old_rev="$(jq -r "$locked.rev" '"$before_flake_lock"')"; \
-            new_rev="$(echo "$in" | jq -r .value)"; \
-            path="$(jq -r "$locked | \"https://\(.host // \"github.com\")/\(.owner)/\(.repo)/compare\"" flake.lock)"; \
-            echo "- $path/$old_rev...$new_rev" \
-          ' "" >> comment.md
-
-    - name: Find Comment
-      uses: peter-evans/find-comment@v3
-      id: fc
-      with:
-        issue-number: ${{ github.event.pull_request.number }}
-        comment-author: 'github-actions[bot]'
-        body-includes: flake.lock compare links
-
-    - name: Create or update comment
-      uses: peter-evans/create-or-update-comment@v4
-      with:
-        comment-id: ${{ steps.fc.outputs.comment-id }}
-        issue-number: ${{ github.event.pull_request.number }}
-        body-path: 'comment.md'
+  - name: Create or update comment
+    uses: peter-evans/create-or-update-comment@v4
+    with:
+      comment-id: ${{ steps.fc.outputs.comment-id }}
+      issue-number: ${{ github.event.pull_request.number }}
+      body-path: 'comment.md'
         edit-mode: replace
