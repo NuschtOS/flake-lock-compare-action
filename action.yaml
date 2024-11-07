@@ -32,14 +32,14 @@ runs:
       git show "$before_rev_flake_lock:flake.lock" > "$before_flake_lock"
 
       # when debugging, remove extra escape before dollars in xargs
-      jsondiff "$before_flake_lock" flake.lock | jq -c '.[] | select(.path|endswith("/rev"))' | \
+      (jsondiff "$before_flake_lock" flake.lock || true) | jq -c '.[] | select(.path|endswith("/rev"))' | \
         xargs -d'\n' -n1 bash -c "$DEBUG_CMD"'in="$1"; \
           locked="$(echo "$in" | jq -r .path | sed -e "s|^/|.\"|" -e "s/\(.\)\//\1\"\.\"/g" -e "s|\.\"rev$||g")"; \
           old_rev="$(jq -r "$locked.rev" '"$before_flake_lock"')"; \
           new_rev="$(echo "$in" | jq -r .value)"; \
           path="$(jq -r "$locked | \"https://\(.host // \"github.com\")/\(.owner)/\(.repo)/compare\"" flake.lock)"; \
           echo "- $path/$old_rev...$new_rev" \
-        ' true >> comment.md
+        ' "" >> comment.md
 
   - name: Find Comment
     uses: peter-evans/find-comment@v3
