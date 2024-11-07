@@ -39,7 +39,7 @@ runs:
           new_rev="$(echo "$in" | jq -r .value)"; \
           path="$(jq -r "$locked | \"https://\(.host // \"github.com\")/\(.owner)/\(.repo)/compare\"" flake.lock)"; \
           echo "- $path/$old_rev...$new_rev" \
-        ' "" >> comment.md
+        ' true >> comment.md
 
   - name: Find Comment
     uses: peter-evans/find-comment@v3
