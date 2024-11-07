@@ -1,5 +1,10 @@
-name: "Post compare link when flake.lock changes"
-
+name: post-compare-link
+description: "Post compare link when flake.lock changes"
+inputs:
+  debug:
+    description: Turn on set -x for debugging
+    required: false
+    default: false
 runs:
   using: composite
   steps:
@@ -10,8 +15,14 @@ runs:
 
   - name: Generate comment from changed flake.lock file
     shell: bash
+    env:
+      DEBUG: ${{ inputs.debug }}
     run: |
       export PATH="$PATH:$(nix-build --expr 'with import <nixpkgs> { }; buildEnv { name = "PATH"; paths = [python3Packages.jsonpatch]; }')/bin"
+
+      if [[ $DEBUG != false ]]; then
+        set -x
+      fi
 
       echo "flake.lock compare links:" > comment.md
 
