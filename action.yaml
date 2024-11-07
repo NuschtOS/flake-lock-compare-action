@@ -8,13 +8,6 @@ runs:
     with:
       nix_path: nixpkgs=channel:nixpkgs-unstable
 
-  - name: Check out code
-    uses: actions/checkout@v4
-    with:
-      fetch-depth: 0
-      ref: refs/pull/${{ github.event.pull_request.number }}/merge
-      sparse-checkout: flake.lock
-
   - name: Generate comment from changed flake.lock file
     shell: bash
     run: |
