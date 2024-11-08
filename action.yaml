@@ -1,5 +1,8 @@
 name: post-compare-link
 description: "Post compare link when flake.lock changes"
+branding:
+  color: purple
+  icon: edit-3
 inputs:
   debug:
     description: Turn on set -x for debugging
