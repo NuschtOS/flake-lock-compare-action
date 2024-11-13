@@ -21,7 +21,10 @@ runs:
     env:
       DEBUG: ${{ inputs.debug }}
     run: |
-      export PATH="$PATH:$(nix-build --expr 'with import <nixpkgs> { }; buildEnv { name = "PATH"; paths = [python3Packages.jsonpatch]; }')/bin"
+      # we are adding jq here despite it being by default installed because we rely on features of version 1.7 like if not requiring an else branch
+      # TODO: drop this when runner images are newer than jammy
+      # https://github.com/actions/runner/blob/main/images/Dockerfile#L1
+      export PATH="$PATH:$(nix-build --expr 'with import <nixpkgs> { }; buildEnv { name = "PATH"; paths = [jq python3Packages.jsonpatch]; }')/bin"
 
       if [[ $DEBUG != false ]]; then
         set -x
