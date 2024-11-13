@@ -40,7 +40,7 @@ runs:
           locked="$(echo "$in" | jq -r .path | sed -e "s|^/|.\"|" -e "s/\(.\)\//\1\"\.\"/g" -e "s|\.\"rev$||g")"; \
           old_rev="$(jq -r "$locked.rev" '"$before_flake_lock"')"; \
           new_rev="$(echo "$in" | jq -r .value)"; \
-          path="$(jq -r "$locked | \"\(.host // (if .type == \"github\" then \"https://github.com/\(.owner)/\(.repo)\" else if .type == \"git\" then .url end end))/compare\"" flake.lock)"; \
+          path="$(jq -r "$locked | \"\(.host // (if .type == \"github\" then \"https://github.com/\(.owner)/\(.repo)\" else if .type == \"git\" then .url else \"error\" end end))/compare\"" flake.lock)"; \
           echo "- $path/$old_rev...$new_rev" \
         ' "" >> comment.md
 
