@@ -30,9 +30,8 @@ runs:
 
       echo "flake.lock compare links:" > comment.md
 
-      before_rev_flake_lock="$(git log HEAD^ -1 --format='%H' -- flake.lock)"
       before_flake_lock="$(mktemp)"
-      git show "$before_rev_flake_lock:flake.lock" > "$before_flake_lock"
+      git show "origin/$GITHUB_BASE_REF:flake.lock" > "$before_flake_lock"
 
       # when debugging, remove extra escape before dollars in xargs
       (jsondiff "$before_flake_lock" flake.lock || true) | jq -c '.[] | select(.path|endswith("/rev"))' | \
